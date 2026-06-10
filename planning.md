@@ -36,18 +36,11 @@ The student housing domain for Northeastern University encompasses complex leasi
 
 ## Chunking Strategy
 
-<!-- How will you split documents into chunks?
-     State your chunk size (in tokens or characters), overlap size, and explain why those
-     numbers fit the structure of your documents.
-     A review-heavy corpus warrants different chunking than a long FAQ. -->
+For our mixed media sources, we will use a hybrid chunking approach that matches the data type:
 
-**Chunk size:**
-
-**Overlap:**
-
-**Reasoning:**
-
----
+* **The 3 PDFs:** I'll be using Recursive Character Splitting with a chunk size of ~500 tokens (roughly 350-400 words) and a 10-20% overlap (e.g., 50-100 tokens). This breaks down the dense legal and administrative information while preserving cross-boundary context.
+* **The 6 Standard Web Pages (URLs & Wiki):** I'll be using Structure-Aware Chunking. Parse the HTML to extract headings (H1, H2, H3), lists, and paragraphs. Treat each major section as its own chunk, maintaining the site’s natural hierarchy rather than splitting arbitrarily.
+* **The 1 Subreddit Thread:** I'll be using Thread-Based/Comment-Aware Chunking. We will not split the original post and its comments haphazardly. Group the main post and each sub-comment chain into an isolated, standalone "document block.
 
 ## Retrieval Approach
 
@@ -58,29 +51,30 @@ The student housing domain for Northeastern University encompasses complex leasi
      support, accuracy on domain-specific text, latency? -->
 
 **Embedding model:**
+all-MiniLM-L6-v2 via sentence-transformers
 
 **Top-k:**
+k = 8
 
 **Production tradeoff reflection:**
+Context Length: The current local model (all-MiniLM-L6-v2) has a very limited context window (typically 256-512 tokens). If cost were not an issue, upgrading to a model like OpenAI's text-embedding-3-large (which handles up to 8,192 tokens) would be highly beneficial.
 
+Multilingual Support: Because this RAG specifically targets the Office of Global Services (OGS) and international student resources, multilingual support is a massive factor. A commercial multilingual model would allow incoming international students to query the system in their native language (e.g., Mandarin, Spanish, Hindi) and successfully retrieve answers accurately grounded in the English source documents.
+
+Accuracy on Domain-Specific Text: My data mixes strict legal/administrative jargon ("joint and several liability," "I-20 forms") with hyper-local Boston student slang ("Allston Christmas," "dorm lottery"). A more robust, parameter-heavy model would possess a much deeper semantic understanding of these localized real estate and university concepts compared to a small, generalized open-source model.
+
+Latency vs. Reliability: The major downside of switching to a massive commercial model is network latency. On peak dates like September 1st (moving day), a spike in student queries could cause API timeouts or slow response times. A small local model like MiniLM trades deep comprehension for guaranteed, near-zero latency.
 ---
 
 ## Evaluation Plan
 
-<!-- List your 5 test questions with their expected correct answers.
-     Questions should be specific enough that you can judge whether the system's response
-     is right or wrong. "What are good dining halls?" is too vague.
-     "What do students say about wait times at [dining hall name] during lunch?" is testable. -->
-
 | # | Question | Expected answer |
 |---|----------|-----------------|
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | | |
-| 5 | | |
-
----
+| 1 | According to the Northeastern Leasing Information, what is the "No More Than Four" rule? | It is a City of Boston zoning ordinance that prohibits more than four unrelated undergraduate students from living together in a single apartment or house. |
+| 2 | Based on the Network Housing Relocation resources, what specific document can international students without a U.S. credit score use to help secure an off-campus apartment? | They can use their I-20 form in place of standard financial documents. |
+| 3 | According to the Massachusetts Attorney General's Guide to Landlord and Tenant Rights, what is the legally allowed maximum amount a landlord can charge for a security deposit? | The security deposit cannot exceed the amount of one month's rent. |
+| 4 | Based on the r/boston Housing Wiki, what is the local nickname given to the September 1st moving day phenomenon where discarded furniture lines the neighborhood sidewalks? | "Allston Christmas" |
+| 5 | According to the MBTA Subway Map and schedules, which specific branch of the Green line directly connects to the main Northeastern campus? | The Green Line "E" Branch. |
 
 ## Anticipated Challenges
 
