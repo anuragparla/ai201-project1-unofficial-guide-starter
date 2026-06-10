@@ -9,7 +9,8 @@
 
 ## Domain
 
-<!-- What domain did you choose? Why is this knowledge valuable and hard to find through official channels? -->
+The domain I chose is "Student Housing".
+The student housing domain for Northeastern University encompasses complex leasing rules, international student requirements, and localized Boston zoning laws. This knowledge is highly fragmented across official university PDFs, strict legal state documents, and informal crowd-sourced student forums, making it difficult for students to find definitive, synthesized answers when navigating the off-campus housing market.
 
 ---
 
@@ -20,16 +21,16 @@
 
 | # | Source | Description | URL or location |
 |---|--------|-------------|-----------------|
-| 1 | | | |
-| 2 | | | |
-| 3 | | | |
-| 4 | | | |
-| 5 | | | |
-| 6 | | | |
-| 7 | | | |
-| 8 | | | |
-| 9 | | | |
-| 10 | | | |
+| 1 | Northeastern Off-Campus Housing Guidelines | This is the official university portal. Scraping it gives the RAG knowledge of the university's recommended search process, verified property lister guidelines, and "Lease Genius" checklist tools. | https://offcampus.housing.northeastern.edu/explore-housing-options/bostonareahousing/ |
+| 2 | Northeastern Guide to Residence Hall Living (PDF) | This is the definitive rulebook for on-campus living. It holds the exact administrative answers to lockout fees, guest policies, move-out dates, and RA protocols. | https://housing.northeastern.edu/wp-content/uploads/2025/08/Guide-to-Residence-Hall-Living-AY25-26-Final.pdf |
+| 3 | Office of Global Services (OGS) Housing Guide | Essential for the international demographic. It outlines summer storage options, temporary housing recommendations upon arrival, and scam avoidance specifically tailored to students arriving from abroad. | https://international.northeastern.edu/ogs/housing/ |
+| 4 | Network Housing Relocation - International Resources | Details the documentation required for renting without a U.S. credit score, including how to use an I-20 form in place of standard financial documents to secure an off-campus apartment. | https://network.housing.northeastern.edu/relocation-resources/resources-for-international-students/ |
+| 5 | r/NEU Housing & Roommate Megathread | Unstructured community data. It captures student sentiment, current market pricing for sublets, warnings about specific management companies, and real-world advice on dorm lotteries. | https://www.reddit.com/r/NEU/ |
+| 6 | r/boston Housing Wiki | A massive, crowd-sourced guide to the Boston rental market. It provides neighborhood breakdowns, broker fee avoidance strategies, and standard moving logistics. | https://www.reddit.com/r/boston/wiki/housing/ |
+| 7 | Massachusetts Attorney General's Guide to Landlord and Tenant Rights (PDF) | Grounds your RAG in state law. It contains the legal facts regarding security deposit limits, eviction notices, and habitability requirements (heating season rules, pest control). | https://www.mass.gov/doc/2025-guide-to-landlord-tenant-rights-11182025/download |
+| 8 | Northeastern Leasing Information & Boston Zoning Rules | Details the "No More Than Four" rule a strict City of Boston zoning ordinance prohibiting more than four unrelated undergraduate students from living together. | https://offcampus.housing.northeastern.edu/get-started/leasing-information/ |
+| 9 | Standard Greater Boston Real Estate Board (GBREB) Lease (PDF) | Processing a blank standard lease template allows your system to understand what a standard clause looks like when a user asks about normal landlord fees. | https://freeforms.com/wp-content/uploads/2021/04/Greater-Boston-Real-Estate-Board-Standard-Form-Apartment-Lease.pdf |
+| 10 | MBTA Subway Map and Schedules | Commute time is a major factor for off-campus students. Indexing transit data allows the RAG to answer queries about which neighborhoods are directly connected to the main campus. | https://www.mbta.com/schedules/subway |
 
 ---
 
