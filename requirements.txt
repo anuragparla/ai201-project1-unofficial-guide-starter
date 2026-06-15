@@ -3,9 +3,12 @@ chromadb>=0.6.0
 groq==0.15.0
 python-dotenv==1.0.1
 
-# Query interface — add whichever you use for Milestone 5:
-# gradio>=6.9.0
-# streamlit>=1.40.0
+# Query interface (Milestone 5).
+# NOTE: gradio 6.x requires huggingface-hub>=1.2, which conflicts with
+# transformers/sentence-transformers (<1.0). Pin gradio 5.x + hub <1.0 so the
+# embedding stack and the UI coexist.
+gradio>=5.0,<6
+huggingface-hub<1.0
 
 # Document ingestion
 pdfplumber==0.11.4
