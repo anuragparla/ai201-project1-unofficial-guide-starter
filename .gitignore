@@ -16,5 +16,10 @@ env/
 chroma_db/
 chroma/
 
+# Ingestion artifacts — reproducible from sources; raw downloads may be copyrighted
+documents/raw/
+documents/clean/
+documents/chunks.jsonl
+
 # macOS
 .DS_Store

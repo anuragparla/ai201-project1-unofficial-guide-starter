@@ -31,6 +31,7 @@ The student housing domain for Northeastern University encompasses complex leasi
 | 8 | Northeastern Leasing Information & Boston Zoning Rules | Details the "No More Than Four" rule a strict City of Boston zoning ordinance prohibiting more than four unrelated undergraduate students from living together. | https://offcampus.housing.northeastern.edu/get-started/leasing-information/ |
 | 9 | Standard Greater Boston Real Estate Board (GBREB) Lease (PDF) | Processing a blank standard lease template allows your system to understand what a standard clause looks like when a user asks about normal landlord fees. | https://freeforms.com/wp-content/uploads/2021/04/Greater-Boston-Real-Estate-Board-Standard-Form-Apartment-Lease.pdf |
 | 10 | MBTA Subway Map and Schedules | Commute time is a major factor for off-campus students. Indexing transit data allows the RAG to answer queries about which neighborhoods are directly connected to the main campus. | https://www.mbta.com/schedules/subway |
+| 11 | Northeastern International Student Apartment Guide (PDF) | An official NEU brochure aimed at international students. It condenses lease literacy (common lease terms like "jointly and severally," co-signer/guarantor, security deposit rules), a step-by-step scam-avoidance checklist, and a glossary of rental key terms — reinforcing the international demographic alongside sources #3 and #4. | https://international.northeastern.edu/ogs/housing/ (NEU OGS brochure, manually downloaded) |
 
 ---
 
@@ -52,7 +53,7 @@ The chunk size is driven by my embedding model. `all-MiniLM-L6-v2` truncates inp
 My corpus is also heterogeneous, so the splitting *method* matters as much as the number. It spans four document types with very different structure:
 
 - **Long-form prose / legal** (#2 Residence Hall Guide, #7 MA AG Tenant Rights, #9 GBREB Lease) — sectioned, hierarchical, with self-contained clauses.
-- **Web guide pages** (#1, #3, #4, #8) — short sections under headings.
+- **Web / brochure guide pages** (#1, #3, #4, #8 web pages; #11 International Student Apartment Guide PDF) — short sections under headings, glossaries, checklists.
 - **Forum / crowd-sourced** (#5 r/NEU, #6 r/boston wiki) — short, self-contained, noisy posts and comments.
 - **Tabular / structured** (#10 MBTA schedules) — rows, not prose.
 
@@ -106,7 +107,7 @@ If I were deploying this for real users and cost weren't a constraint, I'd weigh
 | 1 | What is Boston's "No More Than Four" rule for student renters? | A City of Boston zoning ordinance prohibits more than four full-time undergraduate students from living together in the same rental unit, regardless of unit size. *(Source #8 — Northeastern Leasing Information & Boston Zoning Rules)* |
 | 2 | In Massachusetts, what is the maximum security deposit a landlord can charge, and what other up-front payments are allowed? | A landlord may charge at most one month's rent as a security deposit. Allowed up-front charges are limited to first month's rent, last month's rent, the security deposit (≤ 1 month), and the cost of a new lock/key. *(Source #7 — MA AG Guide to Landlord and Tenant Rights)* |
 | 3 | As an international student with no U.S. credit history, what document can I use to help secure an off-campus apartment? | International students can use their I-20 form (along with other documentation) in place of standard U.S. financial/credit documents to demonstrate eligibility when renting. *(Source #4 — Network Housing Relocation, International Resources)* |
-| 4 | During Massachusetts "heating season," is my landlord required to provide heat, and for what dates? | Yes. Under the state Sanitary Code, landlords must provide heat to a minimum temperature during heating season, which runs from September 16 through June 15. *(Source #7 — MA AG Guide to Landlord and Tenant Rights)* |
+| 4 | In a Massachusetts rental, who is responsible for paying for heat, hot water, and electricity? | The landlord must pay for heat, hot water, and electricity unless a term in the lease or other written rental agreement requires the tenant to pay. A tenant cannot be required to pay for gas or electricity unless it is separately metered. *(Source #7 — MA AG Guide to Landlord and Tenant Rights)* |
 | 5 | Which MBTA subway line directly connects to Northeastern's main campus, and what station serves it? | The Orange Line serves Northeastern's main campus via Ruggles station (the Green Line E branch also stops at Northeastern station), giving direct connections toward downtown Boston. *(Source #10 — MBTA Subway Map and Schedules)* |
 
 ---
@@ -139,7 +140,7 @@ If I were deploying this for real users and cost weren't a constraint, I'd weigh
 flowchart TD
     subgraph S1["1 · Document Ingestion"]
         A1["HTML pages #1,#3,#4,#8<br/>requests + BeautifulSoup"]
-        A2["PDFs #2,#7,#9<br/>pypdf"]
+        A2["PDFs #2,#7,#9,#11<br/>pdfplumber (column-aware)"]
         A3["Reddit #5,#6<br/>cleaned text"]
         A4["MBTA #10<br/>normalized to NL facts"]
     end
@@ -179,7 +180,7 @@ flowchart TD
 
 | Stage | Tool / Library | Output |
 |-------|----------------|--------|
-| 1 · Ingestion | `requests` + `BeautifulSoup` (HTML), `pypdf` (PDFs), custom cleaners (Reddit, MBTA) | Raw normalized text per source |
+| 1 · Ingestion | `requests` + `BeautifulSoup` (HTML), `pdfplumber` (PDFs, column-aware), custom cleaners (Reddit JSON, MBTA v3 API) | Raw normalized text per source |
 | 2 · Chunking | LangChain `RecursiveCharacterTextSplitter` | ~240-token chunks w/ metadata |
 | 3 · Embedding + Store | `sentence-transformers` (`all-MiniLM-L6-v2`) + FAISS / NumPy | 384-dim vectors in a searchable index |
 | 4 · Retrieval | Cosine similarity, top-k = 6 | 6 most relevant chunks + metadata |
@@ -203,7 +204,7 @@ flowchart TD
 
 - **Tool:** Claude (via Claude Code) for generating the loaders and chunker; Copilot for inline autocomplete while editing.
 - **Input I'll give it:** stages 1–2 of the **Architecture** diagram (so the model sees how ingestion branches by source type and feeds the chunker), the **Documents** table (so it knows the four source types — HTML pages, PDFs, Reddit, MBTA schedules), and the full **Chunking Strategy** section (target ~240 tokens, ~40-token/15% overlap, recursive structure-aware splitting, the MBTA pre-processing rule, and the `source`/`url`/`doc_type`/`source_date` metadata requirement).
-- **What I expect it to produce:** a `load_documents()` that fetches/parses each source type (e.g., `requests` + `BeautifulSoup` for HTML, `pypdf` for PDFs, cleaned text for Reddit, a hand-written normalizer for MBTA), and a `chunk_text()` using a recursive splitter (e.g., LangChain `RecursiveCharacterTextSplitter`) at my specified size/overlap that attaches metadata to every chunk.
+- **What I expect it to produce:** a `load_documents()` that fetches/parses each source type (`requests` + `BeautifulSoup` for HTML, `pdfplumber` with column-aware extraction for PDFs, a JSON walker for Reddit posts/comments, a hand-written normalizer over the MBTA v3 API), and a `chunk_text()` using a recursive splitter (e.g., LangChain `RecursiveCharacterTextSplitter`) at my specified size/overlap that attaches metadata to every chunk.
 - **How I'll verify:** print chunk count and a sample of chunks; assert no chunk exceeds ~240 tokens (so nothing truncates at embedding), confirm overlap appears between consecutive chunks, and check that each chunk carries correct `source`/`doc_type` metadata.
 
 **Milestone 4 — Embedding and retrieval:**
