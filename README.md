@@ -99,6 +99,58 @@ sentences. Every chunk also carries metadata (`source`, `url`, `doc_type`,
 **Final chunk count:** **267 chunks** across the 11 sources (min 50 / avg 216 /
 max 253 tokens).
 
+### Sample Chunks
+
+Five representative chunks taken verbatim from `documents/chunks.jsonl`, one from
+each of five different source types (law, official web, transit, official
+brochure, forum). Each is labeled with its `chunk_id`, source document, and
+`doc_type`.
+
+**Chunk 1 — `07_ma_ag_tenant_rights#0028`**
+Source: *Massachusetts AG Guide to Landlord and Tenant Rights* (`law`, 221 tokens)
+> apartment); and • The actual cost of a new lock and key for the apartment.31
+> The landlord should provide a signed receipt for any payment that is made with
+> cash or a money order. The receipt must include the amount paid and the date
+> the payment was made, and a description of what the payment was for… Landlords
+> may not charge tenants or prospective tenants up-front pet fees, broker fees…
+
+**Chunk 2 — `08_neu_leasing_zoning#0000`**
+Source: *Northeastern Leasing Information & Boston Zoning Rules* (`official`, 236 tokens)
+> A lease is a binding legal contract between you (the tenant or lessee) and the
+> landlord (lessor)… A typical lease states the terms of the rental agreement and
+> is legally enforceable. Most landlords use the Standard Boston Lease with an
+> addendum. 5 Things to Know About Your Lease… Most leases in Boston are 12-month
+> leases, starting September 1 and ending August 31…
+
+**Chunk 3 — `10_mbta_subway#0004`**
+Source: *MBTA Subway Map and Schedules* (`transit`, 58 tokens)
+> The Green Line E serves these stops near Northeastern University: Northeastern
+> University, Symphony. The Blue Line stops at the following stations: Bowdoin,
+> Government Center, State, Aquarium, Maverick, Airport, Wood Island, Orient
+> Heights, Suffolk Downs, Beachmont, Revere Beach, Wonderland.
+
+**Chunk 4 — `11_neu_intl_apartment_guide#0004`**
+Source: *Northeastern International Student Apartment Guide* (`official`, 81 tokens)
+> Prepare for your apartment search by asking these important questions: • What
+> type of apartment am I looking for? How many bedrooms do I need? • Which
+> neighborhoods are suitable for me? • Do I need roommates? • Who will be my
+> co-signer (see key terms)? • Will I require temporary housing before moving in?
+> • Do I have my visa and I-20 to show?
+
+**Chunk 5 — `05_reddit_neu_housing#0000`**
+Source: *r/NEU Housing & Roommate Megathread* (`forum`, 236 tokens)
+> [MEGATHREAD] Ask your housing related questions here! … Hi, incoming freshman
+> here, I have a couple of questions about the Housing Application. When I go to
+> the "Housing Online" link on MyNEU and click on "Fall 2021 Housing
+> Application" it tells me that the Housing application isn't available even
+> though I've already submitted my enrollment deposit over two months ago…
+
+These illustrate the structure-aware splitter at work: the short transit and
+brochure chunks (#3, #4) stayed intact as their own units rather than being
+glued to neighbors, while the long legal and lease text (#1, #2) was split on
+clause/sentence boundaries, and the forum chunk (#5) is clearly marked `forum`
+so generation can treat it as anecdotal.
+
 ---
 
 ## Embedding Model
@@ -126,6 +178,69 @@ CPU; larger local models need a GPU and hosted APIs add per-call latency and
 cost. For this project MiniLM's speed and zero cost outweigh the accuracy gains,
 so it is the right baseline — but accuracy and multilingual support would be the
 first upgrades in production.
+
+---
+
+## Retrieval Test Results
+
+Three queries run live against the populated ChromaDB index via
+`python -m src.retrieval.retrieve --k 4 "<query>"`. Scores are cosine similarity
+in [0, 1]; the top returned chunks are shown with their source and chunk index.
+
+**Query 1: "What is the maximum security deposit in Massachusetts?"**
+
+| Rank | Score | Source (doc_type) | Chunk |
+|------|-------|-------------------|-------|
+| 1 | 0.611 | Massachusetts AG Guide to Landlord and Tenant Rights (law) | 28 |
+| 2 | 0.474 | Massachusetts AG Guide to Landlord and Tenant Rights (law) | 29 |
+| 3 | 0.472 | Massachusetts AG Guide to Landlord and Tenant Rights (law) | 52 |
+| 4 | 0.430 | Massachusetts AG Guide to Landlord and Tenant Rights (law) | 44 |
+
+*Why these are relevant:* All four top chunks come from the authoritative MA
+state-law guide — the only source that actually governs deposit limits. The
+top hit (chunk 28) enumerates exactly what a landlord may collect up front
+(first/last month, a deposit of one month's rent, and the cost of a new
+lock/key) and chunk 29 covers the separate-escrow-account rule, while chunk 52
+is the consumer-protection regulation prohibiting other fees. The query's
+domain terms ("security deposit," "Massachusetts") pulled the precise
+clause-level chunks rather than generic lease prose, and crucially the
+anecdotal forum sources did **not** surface — the desired behavior for a legal
+question.
+
+**Query 2: "Which subway line goes to Northeastern campus?"**
+
+| Rank | Score | Source (doc_type) | Chunk |
+|------|-------|-------------------|-------|
+| 1 | 0.660 | MBTA Subway Map and Schedules (transit) | 0 |
+| 2 | 0.640 | MBTA Subway Map and Schedules (transit) | 4 |
+| 3 | 0.590 | MBTA Subway Map and Schedules (transit) | 1 |
+| 4 | 0.553 | MBTA Subway Map and Schedules (transit) | 3 |
+
+*Why these are relevant:* The top-4 are all from the MBTA transit source, which
+is the only document containing line/station data. Chunk 4 explicitly names the
+Green Line E stop "Northeastern University" and chunk 1 names the Orange Line's
+nearby Ruggles/Massachusetts Avenue stops — together they contain the full
+answer. The normalization step that turned the MBTA API's tabular data into
+natural-language sentences ("The Green Line E serves these stops near
+Northeastern University…") is what let a plain-language query match it so
+strongly (0.66 top score).
+
+**Query 3: "Who pays for heat and hot water in a Massachusetts apartment?"**
+
+| Rank | Score | Source (doc_type) | Chunk |
+|------|-------|-------------------|-------|
+| 1 | 0.635 | Massachusetts AG Guide to Landlord and Tenant Rights (law) | 5 |
+| 2 | 0.592 | Massachusetts AG Guide to Landlord and Tenant Rights (law) | 4 |
+| 3 | 0.582 | Standard Greater Boston Real Estate Board (GBREB) Lease (official) | 3 |
+| 4 | 0.529 | Standard Greater Boston Real Estate Board (GBREB) Lease (official) | 4 |
+
+This query surfaces **both** the law source (rank 1 chunk 5 states "The landlord
+must pay for the heat, hot water, and electricity unless a term in the lease…
+requires the tenant to pay") and the GBREB lease (rank 3–4), which is exactly the
+nuance the question needs — the default rule plus the contractual exception that
+can shift it. This mixed-authority retrieval is what enables the
+authority-weighting rule at generation time (prefer law over the lease, and say
+so).
 
 ---
 
@@ -157,6 +272,81 @@ model emitted, maps them back to the deduplicated source documents via a mapping
 Gradio UI shows the answer and this source list in two separate boxes. This means
 the user always sees the exact documents the answer is grounded in, with their
 authority type, and citation numbers in the answer line up with the source list.
+
+### Example Responses
+
+Real output from `src.generation.generate.answer()` (Groq
+`llama-3.3-70b-versatile`, `temperature=0`). Source attribution is visible in the
+answer text itself (the inline `[n]` markers) and in the appended **Sources**
+list.
+
+**Example 1 — in-scope (security deposit)**
+> **Q:** What is the maximum security deposit a landlord can charge in
+> Massachusetts?
+>
+> **A:** The maximum security deposit a landlord can charge in Massachusetts is
+> equal to one month's rent [1].
+>
+> **Sources:**
+> 1. Massachusetts AG Guide to Landlord and Tenant Rights (law) — https://www.mass.gov/doc/2025-guide-to-landlord-tenant-rights-11182025/download
+
+**Example 2 — in-scope (MBTA access)**
+> **Q:** Which MBTA subway line directly connects to Northeastern campus and at
+> what station?
+>
+> **A:** The Green Line E directly connects to Northeastern campus at the
+> Northeastern University station [1].
+>
+> **Sources:**
+> 1. MBTA Subway Map and Schedules (transit) — https://api-v3.mbta.com
+
+**Example 3 — out-of-scope (refusal)**
+> **Q:** What is the best pizza restaurant in Boston?
+>
+> **A:** I don't have enough information in my sources to answer that.
+
+The third query is on-topic-sounding (it mentions "Boston") but lies outside the
+housing corpus, so the LLM returns the exact refusal string with no Sources
+list — grounding working as designed.
+
+---
+
+## Query Interface
+
+The interface is a **Gradio web app** (`python -m src.generation.app`, served at
+`http://127.0.0.1:7860`).
+
+**Input field**
+- **"Your question"** — a multi-line textbox (2 lines) where the user types a
+  natural-language housing question. A placeholder
+  (*"e.g. How many unrelated students can share an apartment in Boston?"*) and a
+  set of one-click **Examples** prime the user. An **"Ask"** button submits the
+  query.
+
+**Output fields**
+- **"Answer"** — a textbox (8 lines) showing the grounded answer with inline
+  `[n]` citation markers.
+- **"Sources"** — a separate textbox (4 lines) listing each cited source as
+  `n. source name (doc_type) — url`, built programmatically from the retrieved
+  chunks' metadata so citations in the answer line up with this list.
+
+**Sample interaction transcript (one complete query and response):**
+```
+[Your question]  In Massachusetts, who is responsible for paying for heat and hot water?
+
+                 (user clicks "Ask")
+
+[Answer]   The landlord must pay for the heat, hot water, and electricity unless
+           a term in the lease or other written rental agreement requires the
+           tenant to pay for these utilities [1]. The Standard GBREB lease can
+           shift this responsibility to the tenant [2], but the law source [1]
+           takes precedence.
+
+[Sources]  1. Massachusetts AG Guide to Landlord and Tenant Rights (law) —
+              https://www.mass.gov/doc/2025-guide-to-landlord-tenant-rights-11182025/download
+           2. Standard Greater Boston Real Estate Board (GBREB) Lease (official) —
+              https://freeforms.com/wp-content/uploads/2021/04/Greater-Boston-Real-Estate-Board-Standard-Form-Apartment-Lease.pdf
+```
 
 ---
 
